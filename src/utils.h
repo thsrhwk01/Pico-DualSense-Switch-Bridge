@@ -2,15 +2,12 @@
 // Created by awalol on 2026/3/4.
 //
 
-#pragma once
-
 #include <array>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
 
 #include "hci_cmd.h"
-#include "pico/platform/sections.h"
 
 inline const char *opcode_to_str(const uint16_t opcode) {
     switch (opcode) {
@@ -110,8 +107,7 @@ inline constexpr auto make_crc32_table() {
     return table;
 }
 
-inline constexpr std::array<uint32_t, 256> __not_in_flash("crc32_lookup_table")
-crc32_lookup_table = make_crc32_table();
+inline constexpr auto crc32_lookup_table = make_crc32_table();
 
 inline uint32_t crc32_seeded(const uint8_t *data, size_t size, const uint32_t seed) {
     uint32_t crc = ~seed;
@@ -214,8 +210,8 @@ struct __attribute__((packed)) USBGetStateData { // 63
 /*10  #1# uint8_t UNK2; // appears unused
 /*11  #1# uint32_t UNK_COUNTER; // Linux driver calls this reserved, tools leak calls the 2 high bytes "random"
 /*15  #1# int16_t AngularVelocityX;
-/*17  #1# int16_t AngularVelocityY;
-/*19  #1# int16_t AngularVelocityZ;
+/*17  #1# int16_t AngularVelocityZ;
+/*19  #1# int16_t AngularVelocityY;
 /*21  #1# int16_t AccelerometerX;
 /*23  #1# int16_t AccelerometerY;
 /*25  #1# int16_t AccelerometerZ;

@@ -28,9 +28,9 @@
 #define WAKE_KEY_UP_SETTLE_US 200000   // 200 ms between attempts (or before DONE)
 #define WAKE_REQUEST_TIMEOUT_US 5000000
 #define WAKE_KEY_ATTEMPTS     2
-#define WAKE_DISCONNECT_DEBOUNCE_US 3000000  // 3s: only disconnect (and thereby power off) the
-                                             // controller after a sustained suspend; ignore brief
-                                             // hub-induced suspends while the host is awake.
+#define WAKE_POWEROFF_DEBOUNCE_US 3000000  // 3s: only power off the controller after a
+                                           // sustained suspend (real sleep); ignore brief
+                                           // hub-induced suspends while the host is awake.
 #define WAKE_RECONNECT_GRACE_US   5000000  // 5s: after a deliberate USB reconnect, ignore the
                                            // suspend it causes (it is not a host sleep).
                                            // Cleared early when the device re-mounts.
@@ -72,7 +72,7 @@ static uint8_t key_attempts = 0;
 static uint8_t prev_b7 = 0x08;
 static uint8_t prev_b8 = 0x00;
 static uint8_t prev_b9 = 0x00;
-// Debounced controller disconnect: time of the pending suspend (0 = none pending).
+// Debounced controller power-off: time of the pending suspend (0 = none pending).
 static volatile uint64_t suspend_at_us = 0;
 // During a deliberate USB reconnect, ignore the suspend it triggers until this time.
 static volatile uint64_t reconnect_until_us = 0;
@@ -118,7 +118,7 @@ void wake_init(void) {
 }
 
 // Called right before a deliberate USB reconnect (FUNC_RECONNECT): arm a grace window so the
-// suspend the reconnect causes is ignored, and drop any already-pending disconnect.
+// suspend the reconnect causes is ignored, and drop any already-pending debounced power-off.
 void wake_note_usb_reconnect(void) {
     reconnect_until_us = time_us_64() + WAKE_RECONNECT_GRACE_US;
     suspend_at_us = 0;
@@ -128,16 +128,16 @@ extern "C" void tud_suspend_cb(bool remote_wakeup_en) {
     WAKE_DBG("tud_suspend_cb remote_wakeup_en=%d prev_state=%s",
              (int)remote_wakeup_en, wake_state_name(state));
     // A deliberate Reconnect USB (FUNC_RECONNECT) tears the bus down and back up, which looks
-    // like a suspend but is not a host sleep -- ignore it so it cannot disconnect the controller.
+    // like a suspend but is not a host sleep -- ignore it so it cannot power off the controller.
     // See wake_note_usb_reconnect().
     if (time_us_64() < reconnect_until_us) {
         WAKE_DBG("suspend during reconnect grace -> ignored");
         return;
     }
-    // The disconnect runs on every genuine suspend, independent of enable_wake. The DS5 powers
-    // off when its Bluetooth link is disconnected, saving battery during a real sleep/shutdown.
-    // A spurious hub suspend is filtered by the debounce below, not a gate -- it resumes and
-    // tud_resume_cb / tud_mount_cb cancel the pending disconnect first.
+    // The power-off runs on every genuine suspend, independent of enable_wake (battery-save for
+    // a real sleep/shutdown). A spurious hub suspend is filtered by the debounce below, not a
+    // gate -- it resumes and tud_resume_cb / tud_mount_cb cancel the pending power-off first.
+    // Do NOT gate this on enable_wake, or the controller stops powering off on shutdown.
     suspend_at_us = time_us_64();
     host_suspended = true;
     host_resumed_event = false;
@@ -171,7 +171,7 @@ extern "C" void tud_resume_cb(void) {
     WAKE_DBG("tud_resume_cb state=%s", wake_state_name(state));
     host_suspended = false;
     host_resumed_event = true;
-    suspend_at_us = 0;   // resumed before the debounce elapsed -> cancel the disconnect
+    suspend_at_us = 0;   // resumed before the debounce elapsed -> cancel the power-off
 }
 
 extern "C" void tud_mount_cb(void) {
@@ -231,15 +231,15 @@ void wake_on_bt_disconnect(void) {
 void wake_task(void) {
     const uint64_t now = time_us_64();
 
-    // Commit the deferred controller disconnect once we have stayed suspended past the debounce
+    // Commit the deferred controller power-off once we have stayed suspended past the debounce
     // window (a genuine host sleep/shutdown). Runs regardless of enable_wake -- it is a
     // battery-save, not part of the wake-UP path. A transient hub suspend will already have
     // been cancelled by tud_resume_cb / tud_mount_cb before this fires.
     if (suspend_at_us != 0 && host_suspended &&
-        now - suspend_at_us >= WAKE_DISCONNECT_DEBOUNCE_US) {
-        bt_disconnect();
+        now - suspend_at_us >= WAKE_POWEROFF_DEBOUNCE_US) {
+        bt_power_off_controller();
         suspend_at_us = 0;
-        WAKE_DBG("suspend debounce elapsed -> bt_disconnect()");
+        WAKE_DBG("suspend debounce elapsed -> bt_power_off_controller()");
     }
 
     // The wake-UP FSM below only runs when wake is enabled.

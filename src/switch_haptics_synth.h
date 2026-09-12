@@ -13,7 +13,9 @@
 #include "switch_rumble.h"
 
 constexpr uint32_t SWITCH_HAPTICS_SAMPLE_RATE = 3000;
-constexpr size_t SWITCH_HAPTICS_PACKET_FRAMES = 64;
+// The v0.7.2 DualSense 0x36 audio report carries 64 haptics bytes:
+// 32 interleaved stereo frames at 3 kHz.
+constexpr size_t SWITCH_HAPTICS_PACKET_FRAMES = 32;
 
 class SwitchHapticsSynth {
 public:

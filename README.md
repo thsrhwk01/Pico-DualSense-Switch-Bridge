@@ -1,5 +1,7 @@
 # Pico DualSense Switch Bridge
 
+[한국어](./README.KR.md) | [简体中文](./README.CN.md)
+
 > Use a Raspberry Pi Pico 2 W to bridge a Bluetooth DualSense or DualSense Edge
 > controller to either a wired DualSense USB device for PC or a wired Nintendo
 > Switch Pro Controller USB device for Nintendo Switch 2.
@@ -10,6 +12,14 @@ Switch 2-compatible Nintendo Switch Pro Controller profile. See
 [Credits and license](#credits-and-license) for the upstream and protocol sources.
 
 ## Overview
+
+Version 0.8.1 restores the upstream `v0.7.2-hotfix` PC audio/haptics baseline
+while retaining Switch mode. Upgrading from v0.8.0 resets firmware settings to
+schema v5 defaults; reselect Switch mode with BOOTSEL if needed. Bluetooth
+pairings are not intentionally erased. Known issue: speaker volume may be very
+low on the first controller connection after PC startup; disconnecting and
+reconnecting the controller restores it in the reported case. This release
+does not fix that issue.
 
 The controller stays paired with the Pico over Bluetooth. The Pico exposes one USB
 profile at a time and remembers the selected profile across power cycles.
@@ -264,8 +274,8 @@ Build a variant with `-Variant debug`.
 
 To build from source manually:
 
-1. Install Pico SDK 2.3.0 and switch its TinyUSB submodule to commit
-   `2d56dc533e45e4e91b15e93fdab5e22e964f328d`.
+1. Install Pico SDK 2.2.0 and switch its TinyUSB submodule to TinyUSB 0.20.0,
+   commit `3af1bec1a9161ee8dec29487831f7ac7ade9e189`.
 2. Initialise this repo's submodules: `git submodule update --init --recursive`
 3. Configure and build with the standard Pico SDK toolchain:
    `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPICO_SDK_PATH=<sdk>`

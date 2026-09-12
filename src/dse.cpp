@@ -61,7 +61,7 @@ void dse_on_connect() {
         uint8_t handshake[63];
         handshake[0] = 0x53;
         handshake[1] = 0x65;
-        memcpy(handshake + 2, fw.data(), 61);
+        memcpy(handshake + 2, fw.data() + 1, 61);
         bt_control_send(handshake, sizeof(handshake));
     }
     // 2) SET 0x80 {0x70,0x01,...}: profile unlock. Must carry a valid CRC32

@@ -20,7 +20,7 @@ UsbOutputMode active_mode = UsbOutputMode::DualSense;
 
 void select_mode(UsbOutputMode mode) {
     active_mode = mode;
-    get_config().usb_output_mode = static_cast<uint8_t>(mode);
+    config_set_usb_output_mode(static_cast<uint8_t>(mode));
 }
 
 } // namespace
@@ -34,7 +34,7 @@ const char *usb_mode_name() {
 }
 
 void usb_mode_init() {
-    active_mode = get_config().usb_output_mode == static_cast<uint8_t>(UsbOutputMode::SwitchPro)
+    active_mode = config_get_usb_output_mode() == static_cast<uint8_t>(UsbOutputMode::SwitchPro)
                       ? UsbOutputMode::SwitchPro
                       : UsbOutputMode::DualSense;
     switch_pro_usb_init();
@@ -42,7 +42,7 @@ void usb_mode_init() {
 }
 
 void usb_mode_apply_config() {
-    active_mode = get_config().usb_output_mode == static_cast<uint8_t>(UsbOutputMode::SwitchPro)
+    active_mode = config_get_usb_output_mode() == static_cast<uint8_t>(UsbOutputMode::SwitchPro)
                       ? UsbOutputMode::SwitchPro
                       : UsbOutputMode::DualSense;
     switch_pro_usb_reset();

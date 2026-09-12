@@ -51,11 +51,11 @@ on:
         default: false
 
 env:
-  PICO_SDK_REF: 2.3.0
-  TINYUSB_REF: 2d56dc533e45e4e91b15e93fdab5e22e964f328d
+  PICO_SDK_REF: 2.2.0
+  TINYUSB_REF: 3af1bec1a9161ee8dec29487831f7ac7ade9e189
   PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
-  ARM_TOOLCHAIN_VERSION: 15.2.rel1
-  ARM_TOOLCHAIN_URL: https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.2.rel1/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz
+  ARM_TOOLCHAIN_VERSION: 14.2.rel1
+  ARM_TOOLCHAIN_URL: https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz
   ARM_TOOLCHAIN_PATH: ${{ github.workspace }}/arm-toolchain
   APT_PACKAGES: >-
     cmake

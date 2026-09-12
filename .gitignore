@@ -6,3 +6,7 @@ example
 .DS_Store
 .cache
 /tools/__pycache__
+
+# Local Codex maintenance instructions
+/AGENTS.md
+/docs/MAINTENANCE.md

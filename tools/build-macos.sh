@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PICO_SDK_VERSION="2.3.0"
-TINYUSB_VERSION="2d56dc533e45e4e91b15e93fdab5e22e964f328d"
+PICO_SDK_VERSION="2.2.0"
+TINYUSB_VERSION="3af1bec1a9161ee8dec29487831f7ac7ade9e189"
 BUILD_TYPE="Release"
 BUILD_DIR="build/wake"
 ENABLE_WAKE_HID="ON"

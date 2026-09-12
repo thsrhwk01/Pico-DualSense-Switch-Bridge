@@ -10,8 +10,8 @@
 struct __attribute__((packed)) Config_body {
     uint8_t config_version; // Config Version
     float haptics_gain; // [1.0,2.0]
-    uint8_t speaker_volume; // [0,127] // unused
-    uint8_t headset_volume; // [0,127] // max 0x7f // unused
+    uint8_t speaker_volume; // [0,127]
+    uint8_t headset_volume; // [0,127] // max 0x7f
     uint8_t speaker_gain; // [0,7] (0: auto)
     uint8_t inactive_time; // [0,60] min (0: disable)
     uint8_t disable_pico_led; // bool
@@ -20,14 +20,10 @@ struct __attribute__((packed)) Config_body {
     uint8_t controller_mode; // 0: DS5, 1: DSE, 2: Auto
     uint8_t enable_usb_sn; // 0: disable,1: enable
     uint8_t ps_shortcut_enabled; // 0: disabled, 1: enabled (Xbox Game Bar via HID keyboard)
-    uint8_t mic_select; // 0: auto, 1: builtin, 2: headphone, 3: disable
-    uint8_t speaker_select; // 0: auto, 1: builtin, 2: headphone, 3: disable
+    uint8_t disable_mic; // bool: 0 enable (default), 1 disable controller mic
+    uint8_t disable_speaker; // bool: 0 enable (default), 1 disable speaker/headset
     uint8_t enable_wake; // bool: 0 disabled (default), 1 wake host on PS press (USB remote wakeup)
     uint8_t trigger_reduce; // [0,10] (0: auto)
-    uint8_t lock_volume; // bool
-    uint8_t status_gpio_pin; // board-usable GPIO, 0xff: disabled
-    uint8_t status_gpio_mode; // 0: high while connected, 1: button pulse on connect
-    uint8_t usb_output_mode; // 0: DualSense, 1: Switch Pro
 };
 
 struct __attribute__((packed)) Config {
@@ -41,9 +37,12 @@ void config_default();
 void config_load();
 bool config_save();
 Config_body& get_config();
+uint8_t config_get_usb_output_mode();
+void config_set_usb_output_mode(uint8_t mode);
 void set_config(const uint8_t *new_config, const uint16_t len);
 void config_valid();
 void set_config(const Config_body &new_config);
+void set_gain(uint8_t value);
 extern bool is_dse;
 
 #endif //DS5_BRIDGE_CONFIG_H

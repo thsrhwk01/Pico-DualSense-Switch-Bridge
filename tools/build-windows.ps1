@@ -58,11 +58,11 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 # Bump on every change so a stale download is obvious in the banner.
-$SCRIPT_REV   = '2026-07-28.1'
+$SCRIPT_REV   = '2026-09-12.1'
 
 # Pico SDK and TinyUSB pins must match .github/workflows/build-firmware.yml.
-$PICO_SDK_REF = '2.3.0'
-$TINYUSB_REF  = '2d56dc533e45e4e91b15e93fdab5e22e964f328d'
+$PICO_SDK_REF = '2.2.0'
+$TINYUSB_REF  = '3af1bec1a9161ee8dec29487831f7ac7ade9e189'
 $ARM_VER      = '14.2.rel1'
 $ARM_ZIP      = "arm-gnu-toolchain-$ARM_VER-mingw-w64-x86_64-arm-none-eabi.zip"
 $ARM_URL      = "https://developer.arm.com/-/media/Files/downloads/gnu/$ARM_VER/binrel/$ARM_ZIP"

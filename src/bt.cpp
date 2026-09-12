@@ -17,14 +17,17 @@
 #include "bsp/board_api.h"
 #include "classic/sdp_server.h"
 #include "config.h"
-#include "status_gpio.h"
+#include "state_mgr.h"
 #include "dse.h"
-#include "fake_ds5.h"
 #include "wake.h"
 #include "pico/util/queue.h"
 #if ENABLE_BATT_LED
 #include "battery_led.h"
 #endif
+#include "hardware/sync.h"
+#include "hardware/structs/ioqspi.h"
+#include "hardware/structs/sio.h"
+#include "pico/flash.h"
 #if PICO_RP2350
 #include "hardware/regs/sio.h"
 #endif
@@ -68,12 +71,13 @@ static hci_con_handle_t acl_handle = HCI_CON_HANDLE_INVALID;
 static uint16_t hid_control_cid;
 static uint16_t hid_interrupt_cid;
 static bt_data_callback_t bt_data_callback = nullptr;
+static bool check_dse = false;
 static int8_t bt_rssi = 0;
 unordered_map<uint8_t, vector<uint8_t> > feature_data;
 queue_t send_fifo;
 
 struct send_element {
-    uint8_t data[672];
+    uint8_t data[512];
     size_t len;
 };
 
@@ -113,13 +117,12 @@ bool bt_disconnect() {
     }
 
     // 0x13 = remote user terminated connection
-    printf("[HCI] Disconnect requested handle=0x%04X reason=0x13\n", acl_handle);
     hci_send_cmd(&hci_disconnect, acl_handle, 0x13);
     return true;
 }
 
 bool bt_is_connected() {
-    return hid_interrupt_cid != 0;
+    return acl_handle != HCI_CON_HANDLE_INVALID && hid_interrupt_cid != 0;
 }
 
 void bt_get_signal_strength(int8_t *rssi) {
@@ -156,6 +159,8 @@ int bt_init() {
     gap_ssp_set_io_capability(SSP_IO_CAPABILITY_DISPLAY_YES_NO);
     gap_ssp_set_authentication_requirement(SSP_IO_AUTHREQ_MITM_PROTECTION_NOT_REQUIRED_GENERAL_BONDING);
 
+    gap_set_page_scan_activity(0x0012, 0x0012); // 11.25ms
+    gap_set_page_scan_type(PAGE_SCAN_MODE_INTERLACED);
     gap_connectable_control(1);
     gap_discoverable_control(1);
 
@@ -238,18 +243,6 @@ static bool bt_blacklist_contains(bd_addr_t addr) {
     return false;
 }
 
-// Add an address to the blacklist if not already present (de-duped, capped at
-// NVM_NUM_LINK_KEYS). The BOOTSEL-hold clear uses this so repeated holds
-// accumulate rather than rebuild (see bt_bootsel_hold_action()).
-static void bt_blacklist_add_unique(bd_addr_t addr) {
-    if (bt_cleared_addrs_count >= NVM_NUM_LINK_KEYS) return;
-    for (int i = 0; i < bt_cleared_addrs_count; i++) {
-        if (bd_addr_cmp(addr, bt_cleared_addrs[i]) == 0) return; // already listed
-    }
-    bd_addr_copy(bt_cleared_addrs[bt_cleared_addrs_count++], addr);
-    printf("[BLACKLIST] Added %s\n", bd_addr_to_str(addr));
-}
-
 // Remove the given address from the blacklist (if present). Defers the
 // flash persist to the main loop via bt_blacklist_dirty so the L2CAP HID
 // open hot path stays fast (audio + HID init must not block on flash).
@@ -307,26 +300,38 @@ void bt_bootsel_click_action() {
 void bt_bootsel_hold_action() {
     printf("[BT] BOOTSEL held - clearing all pairings\n");
 
-    // Additive + de-duped: merge the currently-stored controllers into the
-    // EXISTING blacklist. Do NOT reset the list first -- on a second hold no link
-    // keys remain, so a rebuild would produce an empty list, and
-    // bt_blacklist_persist() delete_tag's an empty list, silently un-blacklisting
-    // the controller that was just cleared.
+    // Reset and rebuild blacklist from currently stored keys
+    bt_cleared_addrs_count = 0;
     btstack_link_key_iterator_t it;
     if (gap_link_key_iterator_init(&it)) {
         bd_addr_t addr;
         link_key_t key;
         link_key_type_t type;
-        while (gap_link_key_iterator_get_next(&it, addr, key, &type)) {
-            bt_blacklist_add_unique(addr);
+        while (gap_link_key_iterator_get_next(&it, addr, key, &type) &&
+               bt_cleared_addrs_count < NVM_NUM_LINK_KEYS) {
+            bd_addr_copy(bt_cleared_addrs[bt_cleared_addrs_count++], addr);
+            printf("[BLACKLIST] From stored key: %s\n", bd_addr_to_str(addr));
         }
         gap_link_key_iterator_done(&it);
     }
 
-    // Belt + suspenders: if connected, blacklist the live controller's MAC too
-    // (its key may not be persisted yet), then drop the link.
+    // Belt + suspenders: if connected, add the live controller's MAC too,
+    // in case the iterator missed it (e.g. key not yet persisted to flash).
+    if (hid_interrupt_cid != 0 && bt_cleared_addrs_count < NVM_NUM_LINK_KEYS) {
+        bool already_present = false;
+        for (int i = 0; i < bt_cleared_addrs_count; i++) {
+            if (bd_addr_cmp(current_device_addr, bt_cleared_addrs[i]) == 0) {
+                already_present = true;
+                break;
+            }
+        }
+        if (!already_present) {
+            bd_addr_copy(bt_cleared_addrs[bt_cleared_addrs_count++], current_device_addr);
+            printf("[BLACKLIST] From live connection: %s\n", bd_addr_to_str(current_device_addr));
+        }
+    }
+
     if (hid_interrupt_cid != 0) {
-        bt_blacklist_add_unique(current_device_addr);
         bt_disconnect();
     }
     gap_delete_all_link_keys();
@@ -368,8 +373,7 @@ void bt_inquiring_led() {
     }
 }
 
-static void __not_in_flash_func(hci_packet_handler)(uint8_t packet_type, uint16_t channel, uint8_t *packet,
-                                                    uint16_t size) {
+static void __not_in_flash_func(hci_packet_handler)(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size) {
     (void) channel;
 
     const uint8_t event_type = hci_event_packet_get_type(packet);
@@ -379,8 +383,6 @@ static void __not_in_flash_func(hci_packet_handler)(uint8_t packet_type, uint16_
             const uint8_t state = btstack_event_state_get_state(packet);
             printf("[BT] State: %u\n", state);
             if (state == HCI_STATE_WORKING) {
-                gap_set_page_scan_activity(0x0012, 0x0012); // 11.25ms
-                gap_set_page_scan_type(PAGE_SCAN_MODE_INTERLACED);
                 printf("[BT] Stack ready, start inquiry\n");
                 bt_blacklist_load();
                 gap_inquiry_start(30);
@@ -567,6 +569,10 @@ static void __not_in_flash_func(hci_packet_handler)(uint8_t packet_type, uint16_
                     if (hid_control_cid == 0) {
                         l2cap_create_channel(l2cap_packet_handler, current_device_addr, PSM_HID_CONTROL, MTU_CONTROL,
                                              &hid_control_cid);
+                    } else if (hid_interrupt_cid == 0) {
+                        l2cap_create_channel(l2cap_packet_handler, current_device_addr, PSM_HID_INTERRUPT,
+                                             MTU_INTERRUPT,
+                                             &hid_interrupt_cid);
                     }
                 }
             }
@@ -577,18 +583,14 @@ static void __not_in_flash_func(hci_packet_handler)(uint8_t packet_type, uint16_
             bd_addr_t addr;
             hci_event_connection_request_get_bd_addr(packet, addr);
             const uint32_t cod = hci_event_connection_request_get_class_of_device(packet);
-            // 这个是按 PS 键重连的时候才会触发
             printf("[HCI] Incoming ACL request from %s cod=0x%06x\n", bd_addr_to_str(addr), (unsigned int) cod);
             if (bt_blacklist_contains(addr)) {
-                printf("[HCI] Rejecting connection from %s (MAC is on persistent blacklist; re-pair via PS+Share)\n",
-                       bd_addr_to_str(addr));
+                printf("[HCI] Rejecting connection from %s (MAC is on persistent blacklist; re-pair via PS+Share)\n", bd_addr_to_str(addr));
                 hci_send_cmd(&hci_reject_connection_request, addr, 0x0F);
                 break;
             }
             if ((cod & 0x000F00) == 0x000500) {
                 bd_addr_copy(current_device_addr, addr);
-                // 这里的 stop 触发条件是：刚开机时，pico 处于 inquiry 模式，然后 DS5 通过 PS 键重连
-                // 如果在连接上以后没有停止 inquiry，会导致回报率很低
                 gap_inquiry_stop();
                 hci_send_cmd(&hci_accept_connection_request, addr, 0x01);
             }
@@ -614,9 +616,7 @@ static void __not_in_flash_func(hci_packet_handler)(uint8_t packet_type, uint16_
             bt_rssi = 0;
             hid_control_cid = 0;
             hid_interrupt_cid = 0;
-            gpio_on_disconnect();
-            while (queue_try_remove(&send_fifo, NULL)) {
-            }
+            while (queue_try_remove(&send_fifo, NULL)) {}
             cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
 #if ENABLE_BATT_LED
             battery_led_on_disconnect();
@@ -638,8 +638,7 @@ static void __not_in_flash_func(hci_packet_handler)(uint8_t packet_type, uint16_
     }
 }
 
-static void __not_in_flash_func(l2cap_packet_handler)(uint8_t packet_type, uint16_t channel, uint8_t *packet,
-                                                      uint16_t size) {
+static void __not_in_flash_func(l2cap_packet_handler)(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size) {
     (void) channel;
 
     if (packet_type == L2CAP_DATA_PACKET) {
@@ -667,34 +666,39 @@ static void __not_in_flash_func(l2cap_packet_handler)(uint8_t packet_type, uint1
                 bt_disconnect();
             }
         } else if (channel == hid_control_cid) {
-            if (packet[0] == 0xA3) {
-                const uint8_t report_id = packet[1];
-                feature_data[report_id].assign(packet + 2, packet + size);
-#if ENABLE_VERBOSE
-                printf("[L2CAP] Stored Feature Report 0x%02X, len=%u\n", report_id, size - 2);
-                printf("[L2CAP] HID Control data len=%u\n", size);
-                printf_hexdump(packet, size);
+            if (check_dse) {
+                if (packet[0] == 0xA3 && packet[1] == 0x70) {
+                    printf("Connected DSE Controller\n");
+                    check_dse = false;
+                    is_dse = true;
+                    // Unlock Edge profiles; USB connects immediately, profile
+                    // reads are gated until the snapshot is prepared.
+                    dse_on_connect();
+#if !ENABLE_SERIAL
+                    // don't re-enumerate while the host is suspended -- it would wake a sleeping host
+                    if (!tud_suspended()) tud_connect();
 #endif
-                if (report_id == 0x20) {
-                    if (packet[23] == 0x44) {
-                        printf("Connected DSE Controller\n");
-                        is_dse = true;
-                        dse_on_connect();
-
-                        if (get_config().controller_mode == 0) {
-                            feature_data[0x20].assign(report20,report20 + sizeof(report20));
-                        }
-                    } else {
-                        printf("Connected DS5 Controller\n");
-                        is_dse = false;
-                    }
+                } else if (packet[0] == 0x02) {
+                    printf("Connected DS5 Controller\n");
+                    check_dse = false;
+                    is_dse = false;
 #if !ENABLE_SERIAL
                     if (!tud_suspended()) tud_connect();
 #endif
                 }
             }
-
+            if (packet[0] == 0xA3) {
+                uint8_t report_id = packet[1];
+                feature_data[report_id].assign(packet + 1, packet + size);
+#if ENABLE_VERBOSE
+                printf("[L2CAP] Stored Feature Report 0x%02X, len=%u\n", report_id, size - 1);
+#endif
+            }
             dse_on_control_packet(packet, size);
+#if ENABLE_VERBOSE
+            printf("[L2CAP] HID Control data len=%u\n", size);
+            printf_hexdump(packet, size);
+#endif
             bt_data_callback(CONTROL, packet, size);
         } else {
             printf("[L2CAP] Data on unknown channel 0x%04X (Interrupt: 0x%04X, Control: 0x%04X)\n",
@@ -715,18 +719,10 @@ static void __not_in_flash_func(l2cap_packet_handler)(uint8_t packet_type, uint1
                     hid_control_cid = local_cid;
 
                     const auto mtu = l2cap_get_remote_mtu_for_local_cid(hid_control_cid);
-                    printf("[L2CAP] Remote Control MTU: %d\n", mtu);
-
-                    if (new_pair) {
-                        printf("[L2CAP] Opening interrupt channel\n");
-                        l2cap_create_channel(l2cap_packet_handler, current_device_addr, PSM_HID_INTERRUPT,
-                                             MTU_INTERRUPT,
-                                             &hid_interrupt_cid);
-                    }
+                    printf("[L2CAP] Remote Control MTU: %d\n",mtu);
                 } else if (psm == PSM_HID_INTERRUPT) {
                     printf("[L2CAP] HID Interrupt opened cid=0x%04X\n", local_cid);
                     hid_interrupt_cid = local_cid;
-                    gpio_on_connect();
                     // Successful pair removes this specific MAC from the persistent
                     // blacklist (treated as user-explicit re-pair in PS+Share mode).
                     bt_blacklist_remove(current_device_addr);
@@ -739,23 +735,18 @@ static void __not_in_flash_func(l2cap_packet_handler)(uint8_t packet_type, uint1
                     printf("Init DualSense\n");
 
                     init_feature();
-                    SetStateData state = {
-                        .AllowAudioControl = 1,
-                        .AllowLedColor = 1,
-                        .MicSelect = get_config().mic_select,
-                        .AllowLightBrightnessChange = 1,
-                        .AllowColorLightFadeAnimation = 1,
-                        .LightFadeAnimation = LightFadeAnimation::FadeOut,
-                        .LightBrightness = LightBrightness::Bright,
-                        // RGB LED: R, G, B (Nijika Color!)✨
-                        .LedRed = 0xff,
-                        .LedGreen = 0xd7,
-                        .LedBlue = 0x00,
-                    };
-                    update_state(state);
+                    // 初始化手柄状态
+                    state_init();
+                    uint8_t report32[142]{};
+                    report32[0] = 0x32;
+                    report32[1] = 0x10; // reportSeqCounter
+                    report32[2] = 0x10 | 0 << 6 | 1 << 7;
+                    report32[3] = 0x3f; // 63 bytes
+                    state_set(report32 + 4,sizeof(SetStateData));
+                    bt_write(report32, sizeof(report32));
 
                     const auto mtu = l2cap_get_remote_mtu_for_local_cid(hid_interrupt_cid);
-                    printf("[L2CAP] Remote Interrupt MTU: %d\n", mtu);
+                    printf("[L2CAP] Remote Interrupt MTU: %d\n",mtu);
 
                     wake_on_bt_connect();
 
@@ -861,7 +852,7 @@ vector<uint8_t> get_feature_data(uint8_t reportId, uint16_t len) {
     }
     if (!has_cached_report ||
         // Get Test Command Result
-        // reportId == 0x81 ||
+        reportId == 0x81 ||
         // DSE: Set Profile Save?
         reportId == 0x63 ||
         reportId == 0x65 ||
@@ -897,20 +888,21 @@ void set_feature_data(uint8_t reportId, uint8_t *data, uint16_t len) {
     }
 }
 
+void bt_power_off_controller() {
+    uint8_t bluetooth_control[47]{};
+    bluetooth_control[0] = 0x02; // DualSense Bluetooth control: 1=on, 2=off.
+    set_feature_data(0x08, bluetooth_control, sizeof(bluetooth_control));
+}
+
 void init_feature() {
     feature_data.clear();
     get_feature_data(0x09, 20);
     get_feature_data(0x20, 64);
     get_feature_data(0x22, 64);
     get_feature_data(0x05, 41);
-}
-
-void update_state(const SetStateData &state) {
-    uint8_t pkt[142]{};
-    pkt[0] = 0x32;
-    pkt[1] = 0x10;
-    pkt[2] = 0x90;
-    pkt[3] = 0x3f;
-    memcpy(pkt + 4, &state, sizeof(SetStateData));
-    bt_write(pkt, sizeof(pkt));
+    // DSE
+    // check DSE by request 0x70 feature report. DSE return DEFAULT
+    // If len == 1, it's DS5
+    check_dse = true;
+    get_feature_data(0x70, 64);
 }

@@ -83,7 +83,7 @@ static void button_dispatch(int clicks) {
 // Poll BOOTSEL at 10 Hz and dispatch single / double / triple click + hold:
 //   - hold (>= HOLD_SAMPLES, ~1.5 s) -> clear all pairings
 //   - 1 click  -> pair / switch controller
-//   - 2 clicks -> toggle USB output mode
+//   - 2 clicks -> toggle DualSense / Switch Pro USB mode
 //   - 3 clicks -> BOOTSEL
 // Clicks are counted across the inter-click window; the action fires when it closes.
 // Also services the deferred blacklist persist on the same cadence.

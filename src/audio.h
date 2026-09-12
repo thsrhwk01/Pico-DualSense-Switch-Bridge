@@ -5,8 +5,8 @@
 #ifndef DS5_BRIDGE_AUDIO_H
 #define DS5_BRIDGE_AUDIO_H
 
-#include <cstddef>
 #include <cstdint>
+#include <cstddef>
 
 void audio_init();
 void audio_loop();

@@ -15,9 +15,9 @@ if (WIN32)
 else ()
     set(USERHOME $ENV{HOME})
 endif ()
-set(sdkVersion 2.3.0)
-set(toolchainVersion 15_2_Rel1)
-set(picotoolVersion 2.3.0)
+set(sdkVersion 2.2.0)
+set(toolchainVersion 14_2_Rel1)
+set(picotoolVersion 2.2.0-a4)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
@@ -63,12 +63,6 @@ if(ENABLE_VERBOSE)
     set(ENABLE_VERBOSE_VALUE 1)
 else()
     set(ENABLE_VERBOSE_VALUE 0)
-endif ()
-option(ENABLE_DEBUG "Enable debug probes" OFF)
-if(ENABLE_DEBUG)
-    set(ENABLE_DEBUG_VALUE 1)
-else()
-    set(ENABLE_DEBUG_VALUE 0)
 endif ()
 option(ENABLE_BATT_LED "Blink Pico LED when DualSense battery is low (<=10%)" ON)
 if (ENABLE_BATT_LED)
@@ -125,15 +119,10 @@ add_executable(pico-dualsense-switch-bridge
         src/button_functions.cpp
         src/dse.cpp
         src/config.cpp
-        src/status_gpio.cpp
         src/cmd.cpp
+        src/state_mgr.cpp
         src/ram_mem.c
-        src/fake_ds5.h
 )
-
-if (ENABLE_DEBUG)
-        target_sources(pico-dualsense-switch-bridge PRIVATE src/debug.cpp)
-endif ()
 
 if (ENABLE_BATT_LED)
         target_sources(pico-dualsense-switch-bridge PRIVATE src/battery_led.cpp)
@@ -218,7 +207,7 @@ relocate_to_ram(lib/btstack/src/l2cap.c.o
     ".text.l2cap_acl_handler=.time_critical.l2cap_acl_handler"
     "Phase B.2: l2cap.c l2cap_acl_handler -> RAM")
 relocate_to_ram(lib/tinyusb/src/common/tusb_fifo.c.o
-    ".text.tu_fifo_read=.time_critical.tu_fifo_read|.text.tu_fifo_read_n_access_mode=.time_critical.tu_fifo_read_n_access_mode|.text.tu_fifo_write=.time_critical.tu_fifo_write|.text.tu_fifo_write_n_access_mode=.time_critical.tu_fifo_write_n_access_mode"
+    ".text.tu_fifo_read=.time_critical.tu_fifo_read|.text.tu_fifo_read_n=.time_critical.tu_fifo_read_n|.text.tu_fifo_write=.time_critical.tu_fifo_write|.text.tu_fifo_write_n=.time_critical.tu_fifo_write_n|.text.tu_fifo_count=.time_critical.tu_fifo_count"
     "Phase B.2: tusb_fifo.c data path -> RAM")
 relocate_to_ram(src/rp2_common/pico_cyw43_driver/cyw43_bus_pio_spi.c.o
     ".text.cyw43_spi_transfer=.time_critical.cyw43_spi_transfer|.text.cyw43_read_bytes=.time_critical.cyw43_read_bytes|.text.cyw43_write_bytes=.time_critical.cyw43_write_bytes|.text.cyw43_read_reg_u32=.time_critical.cyw43_read_reg_u32|.text.cyw43_read_reg_u16=.time_critical.cyw43_read_reg_u16|.text.cyw43_read_reg_u8=.time_critical.cyw43_read_reg_u8|.text.cyw43_write_reg_u32=.time_critical.cyw43_write_reg_u32|.text.cyw43_write_reg_u16=.time_critical.cyw43_write_reg_u16|.text.cyw43_write_reg_u8=.time_critical.cyw43_write_reg_u8|.text.read_reg_u32_swap=.time_critical.read_reg_u32_swap|.text.write_reg_u32_swap=.time_critical.write_reg_u32_swap|.text.ns_delay.constprop.0=.time_critical.cyw43_ns_delay"
@@ -237,11 +226,8 @@ relocate_to_ram(lib/btstack/src/hci.c.o
     ".text.hci_run=.time_critical.hci_run|.text.hci_send_acl_packet_fragments=.time_critical.hci_send_acl_packet_fragments|.text.hci_send_acl_packet_buffer=.time_critical.hci_send_acl_packet_buffer"
     "Phase B.3: hci.c TX pump + ACL out -> RAM")
 relocate_to_ram(lib/btstack/src/l2cap.c.o
-    ".text.l2cap_run=.time_critical.l2cap_run|.text.l2cap_send=.time_critical.l2cap_send|.text.l2cap_send_prepared=.time_critical.l2cap_send_prepared|.text.l2cap_notify_channel_can_send=.time_critical.l2cap_notify_channel_can_send|.text.l2cap_request_can_send_now_event=.time_critical.l2cap_request_can_send_now_event"
+    ".text.l2cap_run=.time_critical.l2cap_run|.text.l2cap_send=.time_critical.l2cap_send|.text.l2cap_send_prepared=.time_critical.l2cap_send_prepared|.text.l2cap_notify_channel_can_send=.time_critical.l2cap_notify_channel_can_send"
     "Phase B.3: l2cap.c TX pump + sends -> RAM")
-relocate_to_ram(lib/btstack/src/btstack_linked_list.c.o
-    ".text.btstack_linked_list_iterator_init=.time_critical.btstack_linked_list_iterator_init|.text.btstack_linked_list_iterator_has_next=.time_critical.btstack_linked_list_iterator_has_next|.text.btstack_linked_list_iterator_next=.time_critical.btstack_linked_list_iterator_next"
-    "Phase B.3: btstack linked-list iterators -> RAM")
 relocate_to_ram(lib/cyw43-driver/src/cyw43_ll.c.o
     ".text.cyw43_ll_write_backplane_mem=.time_critical.cyw43_ll_write_backplane_mem|.text.cyw43_ll_read_backplane_mem=.time_critical.cyw43_ll_read_backplane_mem|.text.cyw43_write_backplane=.time_critical.cyw43_write_backplane|.text.cyw43_read_backplane.constprop.0=.time_critical.cyw43_read_backplane"
     "Phase B.3: cyw43 backplane accessors -> RAM")
@@ -302,7 +288,6 @@ target_compile_definitions(pico-dualsense-switch-bridge PRIVATE
         # registers via flash_safe_execute_core_init().
         PICO_FLASH_ASSUME_CORE1_SAFE=0
         WDL_RESAMPLE_TYPE=float
-        ENABLE_DEBUG=${ENABLE_DEBUG_VALUE}
         CYW43_PIO_CLOCK_DIV_INT=${CYW43_PIO_CLOCK_DIV_VALUE}
         PICO_STDIO_USB_USE_DEFAULT_DESCRIPTORS=0
         PICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE=0
