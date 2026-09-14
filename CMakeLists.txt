@@ -1,6 +1,6 @@
 # Generated Cmake Pico project file
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.18)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
@@ -140,14 +140,29 @@ target_include_directories(wdl_resampler PUBLIC
 #set(OPUS_FIXED_POINT ON)
 add_subdirectory(lib/opus)
 
-# Phase A.3: Move libopus to RAM via .time_critical sections.
+# The encoder uses RESTRICTED_LOWDELAY (CELT) at complexity 0. Tonality/MLP
+# analysis (complexity >= 7) and SILK's encoder-only noise quantizers are not on
+# that audio path. Give these objects individual sections so the bulk .text /
+# .rodata relocation below leaves them in flash. Keep the CELT encoder, all
+# decoder paths, their tables, queue depths and core1 stack unchanged.
+# Source properties must be set in the directory that owns the opus target.
+set_property(SOURCE
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/opus/src/analysis.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/opus/src/mlp.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/opus/src/mlp_data.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/opus/silk/NSQ.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/opus/silk/NSQ_del_dec.c"
+    TARGET_DIRECTORY opus APPEND PROPERTY COMPILE_OPTIONS
+    -ffunction-sections -fdata-sections)
+
+# Phase A.3: Move the remaining libopus code to RAM via .time_critical sections.
 # libopus is built by add_subdirectory(lib/opus); the target `opus` is defined in
 # the subdirectory's CMakeLists.txt, so we can't use POST_BUILD here. Instead we
 # use a stamp-file custom command + custom target that runs after opus is built
 # and before pico-dualsense-switch-bridge links. Renames .text and .rodata of libopus.a to
 # .time_critical.* which the Pico SDK linker places in RAM (loaded from flash
-# at boot, executed from RAM at runtime). ~220 KB total relocated, ~5-6 ms boot
-# time impact for the flash-to-RAM copy.
+# at boot, executed from RAM at runtime). Excluding the cold objects above
+# leaves room for Opus initialization and the other runtime heap allocations.
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/opus_ram_relocate.stamp
     COMMAND ${CMAKE_OBJCOPY} --rename-section .text=.time_critical.opus_text --rename-section .rodata=.time_critical.opus_rodata --rename-section .rodata.str1.4=.time_critical.opus_strings $<TARGET_FILE:opus>
@@ -350,5 +365,22 @@ target_link_libraries(pico-dualsense-switch-bridge
         wdl_resampler
         opus
 )
+
+# A successful link only accounts for static RAM. v0.8.1 linked but ran out of
+# heap creating the Opus decoder with the release toolchain. Fail the build
+# before packaging an image with insufficient room for runtime allocations.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+if(DISABLE_SPEAKER_PROC_VALUE)
+    set(FIRMWARE_MEMORY_PROFILE no-speaker)
+else()
+    set(FIRMWARE_MEMORY_PROFILE audio)
+endif()
+set_property(TARGET pico-dualsense-switch-bridge APPEND PROPERTY LINK_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_memory_budget.py")
+add_custom_command(TARGET pico-dualsense-switch-bridge POST_BUILD
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_memory_budget.py"
+        --nm "${CMAKE_NM}" --profile "${FIRMWARE_MEMORY_PROFILE}"
+        "$<TARGET_FILE:pico-dualsense-switch-bridge>"
+    VERBATIM)
 
 pico_add_extra_outputs(pico-dualsense-switch-bridge)

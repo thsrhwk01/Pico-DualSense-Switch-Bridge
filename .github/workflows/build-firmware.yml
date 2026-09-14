@@ -209,6 +209,10 @@ jobs:
           sudo apt-get -o Dir::Cache::archives="${{ steps.apt-cache.outputs.dir }}" install -y $APT_PACKAGES
           sudo chmod -R a+rX "${{ steps.apt-cache.outputs.dir }}"
 
+      - name: Run host regression tests
+        if: matrix.id == 'standard'
+        run: ./tests/run_host_tests.sh
+
       - name: Cache ARM toolchain
         id: cache-arm-toolchain
         uses: actions/cache@v5
@@ -290,6 +294,17 @@ jobs:
           name: ${{ matrix.artifact }}${{ steps.firmware-meta.outputs.asset_suffix }}
           path: artifacts/${{ matrix.artifact }}${{ steps.firmware-meta.outputs.asset_suffix }}.uf2
           archive: false
+          if-no-files-found: error
+
+      - name: Preserve ELF and memory map for firmware verification
+        if: matrix.upload_artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: firmware-symbols-${{ matrix.id }}${{ steps.firmware-meta.outputs.asset_suffix }}
+          path: |
+            build/${{ matrix.build_dir }}/pico-dualsense-switch-bridge.elf
+            build/${{ matrix.build_dir }}/pico-dualsense-switch-bridge.elf.map
+          retention-days: 14
           if-no-files-found: error
 
   release:

@@ -13,13 +13,18 @@ Switch 2-compatible Nintendo Switch Pro Controller profile. See
 
 ## Overview
 
-Version 0.8.1 restores the upstream `v0.7.2-hotfix` PC audio/haptics baseline
-while retaining Switch mode. Upgrading from v0.8.0 resets firmware settings to
-schema v5 defaults; reselect Switch mode with BOOTSEL if needed. Bluetooth
-pairings are not intentionally erased. Known issue: speaker volume may be very
-low on the first controller connection after PC startup; disconnecting and
+Version 0.8.2-rc.1 fixes an audio initialization heap shortage in v0.8.1 that
+could leave the device unresponsive, with Windows USB recognition errors and
+BOOTSEL actions failing. It retains the upstream `v0.7.2-hotfix` PC audio/haptics
+baseline and Switch mode. This is a prerelease pending hardware validation of
+the final GitHub Actions firmware.
+
+Upgrading from v0.8.1 preserves the existing settings format and pairing data.
+Upgrading from v0.8.0 resets firmware settings to schema v5 defaults; reselect
+Switch mode with BOOTSEL if needed. Known issue: speaker volume may be very low
+on the first controller connection after PC startup; disconnecting and
 reconnecting the controller restores it in the reported case. This release
-does not fix that issue.
+does not fix that volume issue.
 
 The controller stays paired with the Pico over Bluetooth. The Pico exposes one USB
 profile at a time and remembers the selected profile across power cycles.
@@ -273,6 +278,12 @@ Build a variant with `-Variant debug`.
 ### Other platforms
 
 To build from source manually:
+
+Use CMake 3.18 or newer. Each firmware build checks the linked ELF for at least
+128 KiB of initial heap (32 KiB with speaker processing disabled). This guards
+against the Opus initialization allocation failure found in v0.8.1; it does not
+replace hardware testing. Cold Opus analysis and SILK encoder quantization code
+stays in flash to preserve RAM for the existing audio paths and buffers.
 
 1. Install Pico SDK 2.2.0 and switch its TinyUSB submodule to TinyUSB 0.20.0,
    commit `3af1bec1a9161ee8dec29487831f7ac7ade9e189`.

@@ -15,3 +15,5 @@ g++ -std=c++20 -Wall -Wextra -Werror -pedantic \
     -o "$out_dir/test_switch_pro"
 
 "$out_dir/test_switch_pro"
+
+python3 -B "$repo_dir/tests/test_memory_budget.py"
