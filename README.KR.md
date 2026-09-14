@@ -32,7 +32,7 @@ USB 프로필만 호스트에 표시하며, 선택한 프로필을 저장해 전
 | USB 프로필 | 대상 호스트 | USB 장치 | 주요 기능 |
 |---|---|---|---|
 | DualSense | Windows / PC | DualSense 또는 DualSense Edge | 네이티브 입력, 터치패드, 모션, 적응형 트리거, 햅틱, 스피커, 헤드셋, 마이크 |
-| Switch Pro | Nintendo Switch 2 | Nintendo Switch Pro 컨트롤러 (`057E:2009`) | 버튼, 스틱, 디지털 ZL/ZR, Home, Capture; 자이로/모션과 HD 진동은 개발 중 |
+| Switch Pro | Nintendo Switch 2 | Nintendo Switch Pro 컨트롤러 (`057E:2009`) | 마이크 버튼을 제외한 버튼, 기본 진동; 아래 Switch 검증 현황 참고 |
 
 Switch 프로필은 새로운 Switch 2 Pro 컨트롤러 프로토콜이 아니라 기존 Nintendo
 Switch Pro 컨트롤러 프로토콜을 사용합니다. 따라서 Switch 2 설정에서
@@ -40,12 +40,34 @@ Switch Pro 컨트롤러 프로토콜을 사용합니다. 따라서 Switch 2 설�
 기존 Pro 컨트롤러와 동일한 8 ms USB 주기(125 Hz)를 사용합니다. NFC/amiibo와
 Switch 2의 `C` 버튼은 지원하지 않습니다.
 
+## Switch 검증 현황
+
+**검증 완료 (Verified on Switch)**
+
+- BOOTSEL 더블 클릭으로 Pro 컨트롤러 모드 전환
+- 기본 진동 동작 — HD 진동 수준의 재현 정확도는 아직 검증되지 않았습니다.
+- 마이크 버튼을 제외한 모든 버튼 동작
+
+**개발 중 (Under development)**
+
+- **자이로/모션은 심각한 버그로 현재 사용 불가입니다.**
+- HD 진동 변환은 실험적 구현이며, 정확도와 완성도는 검증 중입니다.
+
+**실기 검증 대기 (Not yet verified on Switch)**
+
+아날로그 스틱 움직임, 마이크 버튼, 전원 재부팅 후 프로필 유지, 절전/복귀 및
+재연결을 포함한 나머지 구현 동작은 아직 Switch에서 검증되지 않았습니다.
+위에서 명시한 비지원 기능은 그대로 비지원 범위입니다.
+
 ## 주요 기능
+
+아래는 구현된 기능에 대한 설명입니다. Switch 실기에서 검증된 범위는 위의
+**검증 완료** 항목으로 한정됩니다.
 
 - 🎮 실행 중 전환 가능한 DualSense 및 Nintendo Switch Pro USB 프로필
 - 🔁 USB 재연결이나 전원 재부팅 후에도 선택한 프로필 유지
 - 🎮 Pico 2 W를 통한 DualSense 및 DualSense Edge 전체 연결 기능
-- 🌀 **Switch 자이로/모션 — 개발 중:** 현재 변환 구현에 알려진 버그가 있습니다
+- 🌀 **Switch 자이로/모션 — 개발 중:** 심각한 버그로 현재 사용 불가입니다
 - 🔊 **Switch HD 진동(HD Rumble) — 실험적 구현, 개발 중:** 비슷한 진동은 느껴지지만 정확도와 완성도는 검증 중입니다
 - ✨ PC 모드에서 DualSense 네이티브 햅틱과 적응형 트리거 지원
 - 🎧 컨트롤러 스피커와 3.5 mm 단자를 통한 헤드셋 오디오 출력
@@ -103,9 +125,8 @@ Switch 2에서는 **설정 → 컨트롤러 및 액세서리**에서 **Nintendo 
 때는 Pico를 dock에서 물리적으로 분리했다가 다시 연결하세요. DualSense 모드는
 Switch 2가 기본적으로 인식하지 않습니다.
 
-**Switch 자이로/모션은 개발 중이며 알려진 버그가 있습니다.** 현재 DualSense의
-모션 샘플을 Switch report 형식으로 변환하는 구현은 있지만, 올바른 모션 동작은
-아직 보장하지 않습니다.
+**Switch 자이로/모션은 심각한 버그로 현재 사용 불가이며, 개발 중입니다.**
+모션 변환 구현은 있으나 실제 사용할 수 있는 상태가 아닙니다.
 
 **Switch HD 진동(HD Rumble)은 실험적 구현으로, 아직 개발 중입니다.** 현재
 진동 데이터를 해석해 DualSense 액추에이터용 스테레오 PCM으로 합성합니다.

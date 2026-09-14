@@ -31,7 +31,7 @@ profile at a time and remembers the selected profile across power cycles.
 | USB profile | Intended host | USB identity | Key capabilities |
 |---|---|---|---|
 | DualSense | Windows / PC | DualSense or DualSense Edge | Native inputs, touchpad, motion, adaptive triggers, haptics, speaker, headset and microphone |
-| Switch Pro | Nintendo Switch 2 | Nintendo Switch Pro Controller (`057E:2009`) | Buttons, sticks, digital ZL/ZR, Home, Capture; gyro/motion and HD Rumble are in development |
+| Switch Pro | Nintendo Switch 2 | Nintendo Switch Pro Controller (`057E:2009`) | Buttons except the microphone button, basic vibration; see Switch verification status below |
 
 The Switch profile uses the original Nintendo Switch Pro Controller protocol, not the
 new Switch 2 Pro Controller protocol. Switch 2 therefore requires **Nintendo Switch Pro
@@ -39,12 +39,34 @@ Controller Wired Communication** to be enabled in console settings. Switch input
 the original Pro Controller's 8 ms USB interval (125 Hz). NFC/amiibo and the Switch 2
 `C` button are not supported.
 
+## Switch verification status
+
+**Verified on Switch**
+
+- Double-clicking BOOTSEL switches to Pro Controller mode.
+- Basic vibration works. HD Rumble fidelity has not been verified.
+- All buttons except the microphone button work.
+
+**Under development**
+
+- **Gyro/motion is currently unusable due to severe bugs.**
+- HD Rumble translation is experimental; its accuracy and completeness are still being evaluated.
+
+**Not yet verified on Switch**
+
+Other implemented behavior has not yet been verified on Switch, including analog stick
+movement, the microphone button, profile persistence across power cycles, and sleep/wake
+and reconnection behavior. Known unsupported features remain listed above.
+
 ## Features
+
+The following describes implemented functionality. Switch hardware verification is
+limited to the items listed under **Verified on Switch** above.
 
 - 🎮 Runtime-selectable DualSense and Nintendo Switch Pro USB profiles
 - 🔁 The selected USB profile persists across reconnects and power cycles
 - 🎮 Full DualSense and DualSense Edge connectivity via Pico 2 W
-- 🌀 **Switch gyro/motion — in development:** the current conversion has known bugs
+- 🌀 **Switch gyro/motion — in development:** currently unusable due to severe bugs
 - 🔊 **Switch HD Rumble — experimental, in development:** vibration may feel similar, but accuracy and completeness are still being evaluated
 - ✨ Native DualSense haptics and adaptive triggers in PC mode
 - 🎧 Headset audio output — controller speaker and 3.5 mm jack
@@ -102,9 +124,8 @@ For Switch 2, open **System Settings → Controllers & Accessories** and enable
 then physically reconnect the Pico to the dock for the first test. DualSense mode is
 not natively recognized by Switch 2.
 
-**Switch gyro/motion is still in development and has known bugs.** The current
-implementation converts DualSense motion samples into the Switch report format,
-but correct motion behavior is not yet assured.
+**Switch gyro/motion is currently unusable due to severe bugs and remains under
+development.** The motion conversion implementation is not ready for use.
 
 **Switch HD Rumble is experimental and still in development.** The current
 implementation decodes the rumble data and synthesizes stereo PCM for the DualSense
