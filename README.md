@@ -13,11 +13,10 @@ Switch 2-compatible Nintendo Switch Pro Controller profile. See
 
 ## Overview
 
-Version 0.8.2-rc.1 fixes an audio initialization heap shortage in v0.8.1 that
+Version 0.8.2 fixes an audio initialization heap shortage in v0.8.1 that
 could leave the device unresponsive, with Windows USB recognition errors and
 BOOTSEL actions failing. It retains the upstream `v0.7.2-hotfix` PC audio/haptics
-baseline and Switch mode. This is a prerelease pending hardware validation of
-the final GitHub Actions firmware.
+baseline and Switch mode. Firmware source is unchanged from v0.8.2-rc.1.
 
 Upgrading from v0.8.1 preserves the existing settings format and pairing data.
 Upgrading from v0.8.0 resets firmware settings to schema v5 defaults; reselect
@@ -62,7 +61,7 @@ You have two options:
 
 - **Download a pre-built `.uf2`** — grab the newest
   [Releases](../../releases) build (`pico-dualsense-switch-bridge-<version>.uf2`; other board
-  builds are bundled in `other board.zip`; `config_tool.py` is attached there
+  builds are bundled in `other.board.zip`; `config_tool.py` is attached there
   too). No tools needed.
 - **Build it yourself** — see [Build Instructions](#build-instructions)
   below (Windows users get a one-command script).

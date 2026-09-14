@@ -14,10 +14,10 @@
 
 ## 개요
 
-0.8.2-rc.1은 v0.8.1의 오디오 초기화 heap 부족을 수정합니다. 이 문제로 기기가
+0.8.2는 v0.8.1의 오디오 초기화 heap 부족을 수정합니다. 이 문제로 기기가
 응답하지 않으면서 Windows USB 인식 오류와 BOOTSEL 동작 실패가 나타날 수
 있었습니다. PC 오디오·햅틱의 upstream `v0.7.2-hotfix` 기준과 Switch 모드를
-유지합니다. 최종 GitHub Actions 펌웨어의 실기 확인이 남은 사전 릴리스입니다.
+유지합니다. 펌웨어 소스는 v0.8.2-rc.1과 동일합니다.
 
 v0.8.1에서 업데이트하면 기존 설정 형식과 페어링 데이터를 유지합니다.
 v0.8.0에서 업데이트하면 펌웨어 설정이 schema v5 기본값으로 초기화되므로
@@ -62,7 +62,7 @@ Switch 2의 `C` 버튼은 지원하지 않습니다.
 
 - **미리 빌드된 `.uf2` 다운로드** — 최신 [Releases](../../releases)에서
   `pico-dualsense-switch-bridge-<version>.uf2`를 받으세요. 다른 보드용 빌드는
-  `other board.zip`에 묶여 있고 `config_tool.py`도 함께 첨부됩니다.
+  `other.board.zip`에 묶여 있고 `config_tool.py`도 함께 첨부됩니다.
 - **직접 빌드** — 아래 [빌드 방법](#빌드-방법)을 참고하세요. Windows에서는
   한 번의 명령으로 빌드할 수 있습니다.
 
