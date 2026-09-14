@@ -31,7 +31,7 @@ profile at a time and remembers the selected profile across power cycles.
 | USB profile | Intended host | USB identity | Key capabilities |
 |---|---|---|---|
 | DualSense | Windows / PC | DualSense or DualSense Edge | Native inputs, touchpad, motion, adaptive triggers, haptics, speaker, headset and microphone |
-| Switch Pro | Nintendo Switch 2 | Nintendo Switch Pro Controller (`057E:2009`) | Buttons, sticks, digital ZL/ZR, Home, Capture, motion and translated HD Rumble |
+| Switch Pro | Nintendo Switch 2 | Nintendo Switch Pro Controller (`057E:2009`) | Buttons, sticks, digital ZL/ZR, Home, Capture; gyro/motion and HD Rumble are in development |
 
 The Switch profile uses the original Nintendo Switch Pro Controller protocol, not the
 new Switch 2 Pro Controller protocol. Switch 2 therefore requires **Nintendo Switch Pro
@@ -44,8 +44,8 @@ the original Pro Controller's 8 ms USB interval (125 Hz). NFC/amiibo and the Swi
 - 🎮 Runtime-selectable DualSense and Nintendo Switch Pro USB profiles
 - 🔁 The selected USB profile persists across reconnects and power cycles
 - 🎮 Full DualSense and DualSense Edge connectivity via Pico 2 W
-- 🌀 DualSense gyro and accelerometer conversion for the Switch Pro motion format
-- 🔊 Switch HD Rumble decoding and stereo PCM synthesis for the DualSense actuators
+- 🌀 **Switch gyro/motion — in development:** the current conversion has known bugs
+- 🔊 **Switch HD Rumble — experimental, in development:** vibration may feel similar, but accuracy and completeness are still being evaluated
 - ✨ Native DualSense haptics and adaptive triggers in PC mode
 - 🎧 Headset audio output — controller speaker and 3.5 mm jack
 - 🎤 Headset microphone input — the controller mic is exposed as a USB audio input device
@@ -102,13 +102,16 @@ For Switch 2, open **System Settings → Controllers & Accessories** and enable
 then physically reconnect the Pico to the dock for the first test. DualSense mode is
 not natively recognized by Switch 2.
 
-The Switch profile transforms DualSense motion samples into Switch axes and native
-units, placing the three newest samples in every full input report. HD Rumble's two
-frequency bands and amplitudes are decoded independently for the left and right
-actuators, then rendered as phase-continuous stereo PCM for the DualSense haptics. The
-actuator mechanics differ, so this is a frequency-faithful translation rather than
-physically identical vibration. A 500 ms watchdog ramps the actuators to silence if
-the USB host disappears while rumble is active.
+**Switch gyro/motion is still in development and has known bugs.** The current
+implementation converts DualSense motion samples into the Switch report format,
+but correct motion behavior is not yet assured.
+
+**Switch HD Rumble is experimental and still in development.** The current
+implementation decodes the rumble data and synthesizes stereo PCM for the DualSense
+actuators. The vibration may feel similar, but its accuracy and completeness are
+still being evaluated; it should not be treated as a completed or faithful HD Rumble
+implementation. A 500 ms watchdog ramps the actuators to silence if the USB host
+disappears while rumble is active.
 
 ### BOOTSEL button: pair, change USB mode, or clear controllers
 
@@ -358,7 +361,8 @@ After enabling the toggle (then **Reconnect USB** so the interface re-enumerates
 
 - Complete Switch 2 hardware validation and add compact USB-handshake diagnostics
 - Make Switch protocol replies resilient to endpoint backpressure and reconnects
-- Tune motion calibration and the HD Rumble transfer curve on physical controllers
+- Fix known Switch gyro/motion bugs and validate motion calibration on hardware
+- Continue developing and validating the accuracy of Switch HD Rumble translation
 
 ## Community
 

@@ -32,7 +32,7 @@ USB 프로필만 호스트에 표시하며, 선택한 프로필을 저장해 전
 | USB 프로필 | 대상 호스트 | USB 장치 | 주요 기능 |
 |---|---|---|---|
 | DualSense | Windows / PC | DualSense 또는 DualSense Edge | 네이티브 입력, 터치패드, 모션, 적응형 트리거, 햅틱, 스피커, 헤드셋, 마이크 |
-| Switch Pro | Nintendo Switch 2 | Nintendo Switch Pro 컨트롤러 (`057E:2009`) | 버튼, 스틱, 디지털 ZL/ZR, Home, Capture, 모션, 변환된 HD Rumble |
+| Switch Pro | Nintendo Switch 2 | Nintendo Switch Pro 컨트롤러 (`057E:2009`) | 버튼, 스틱, 디지털 ZL/ZR, Home, Capture; 자이로/모션과 HD 진동은 개발 중 |
 
 Switch 프로필은 새로운 Switch 2 Pro 컨트롤러 프로토콜이 아니라 기존 Nintendo
 Switch Pro 컨트롤러 프로토콜을 사용합니다. 따라서 Switch 2 설정에서
@@ -45,8 +45,8 @@ Switch 2의 `C` 버튼은 지원하지 않습니다.
 - 🎮 실행 중 전환 가능한 DualSense 및 Nintendo Switch Pro USB 프로필
 - 🔁 USB 재연결이나 전원 재부팅 후에도 선택한 프로필 유지
 - 🎮 Pico 2 W를 통한 DualSense 및 DualSense Edge 전체 연결 기능
-- 🌀 DualSense 자이로/가속도 데이터를 Switch Pro 모션 형식으로 변환
-- 🔊 Switch HD Rumble을 해석해 DualSense 액추에이터용 스테레오 PCM으로 합성
+- 🌀 **Switch 자이로/모션 — 개발 중:** 현재 변환 구현에 알려진 버그가 있습니다
+- 🔊 **Switch HD 진동(HD Rumble) — 실험적 구현, 개발 중:** 비슷한 진동은 느껴지지만 정확도와 완성도는 검증 중입니다
 - ✨ PC 모드에서 DualSense 네이티브 햅틱과 적응형 트리거 지원
 - 🎧 컨트롤러 스피커와 3.5 mm 단자를 통한 헤드셋 오디오 출력
 - 🎤 컨트롤러 마이크를 USB 오디오 입력 장치로 제공
@@ -103,12 +103,15 @@ Switch 2에서는 **설정 → 컨트롤러 및 액세서리**에서 **Nintendo 
 때는 Pico를 dock에서 물리적으로 분리했다가 다시 연결하세요. DualSense 모드는
 Switch 2가 기본적으로 인식하지 않습니다.
 
-Switch 프로필은 DualSense의 모션 샘플을 Switch 좌표축과 기본 단위로 변환하고,
-각 전체 입력 report에 최신 샘플 3개를 넣습니다. HD Rumble의 두 주파수 대역과
-진폭은 좌우 액추에이터별로 독립적으로 해석되며, 위상이 이어지는 스테레오 PCM으로
-합성되어 DualSense 햅틱으로 전달됩니다. 액추에이터의 물리 구조가 다르기 때문에
-진동이 물리적으로 완전히 같지는 않으며, 주파수 특성을 충실하게 옮기는 변환입니다.
-진동 중 USB 호스트가 사라지면 500 ms watchdog이 액추에이터를 무음으로 줄입니다.
+**Switch 자이로/모션은 개발 중이며 알려진 버그가 있습니다.** 현재 DualSense의
+모션 샘플을 Switch report 형식으로 변환하는 구현은 있지만, 올바른 모션 동작은
+아직 보장하지 않습니다.
+
+**Switch HD 진동(HD Rumble)은 실험적 구현으로, 아직 개발 중입니다.** 현재
+진동 데이터를 해석해 DualSense 액추에이터용 스테레오 PCM으로 합성합니다.
+비슷한 진동은 느껴지지만 정확도와 완성도는 검증 중이며, HD 진동을 충실하게
+재현하거나 개발을 완료한 기능으로 보기 어렵습니다. 진동 중 USB 호스트가 사라지면
+500 ms watchdog이 액추에이터를 무음으로 줄입니다.
 
 ### BOOTSEL 버튼: 페어링, USB 모드 변경, 컨트롤러 삭제
 
@@ -376,7 +379,8 @@ Bar 단축키가 켜진 경우에만 키보드 인터페이스를 표시합니�
 - Switch 2 실기 검증을 완료하고 간결한 USB handshake 진단 기능 추가
 - endpoint backpressure와 재연결 상황에서도 Switch protocol 응답이 안정적으로
   동작하도록 개선
-- 실제 컨트롤러에서 motion calibration과 HD Rumble 변환 curve 조정
+- Switch 자이로/모션의 알려진 버그 수정 및 실기에서 모션 보정 검증
+- Switch HD 진동 변환의 개발과 정확도 검증 진행
 
 ## 커뮤니티
 
