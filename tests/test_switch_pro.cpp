@@ -5,6 +5,7 @@
 
 #include "dualsense_parser.h"
 #include "switch_haptics_synth.h"
+#include "switch_haptics_controls.h"
 #include "switch_pro_protocol.h"
 #include "switch_rumble.h"
 
@@ -319,7 +320,58 @@ void test_switch_haptics_synth() {
 
 } // namespace
 
+void test_haptics_controls() {
+    SwitchHapticsControls controls;
+    uint8_t gain = 10;
+    auto input = [&](bool mute, uint8_t dpad, uint8_t expected_dpad) {
+        ControllerState state{};
+        state.buttons = CONTROLLER_BUTTON_CROSS | (mute ? CONTROLLER_BUTTON_MUTE : 0u);
+        state.dpad = dpad;
+        const auto result = controls.update(state, gain);
+        assert(state.dpad == expected_dpad);
+        assert(state.buttons == CONTROLLER_BUTTON_CROSS);
+        return result;
+    };
+    auto release = [&] { input(false, CONTROLLER_DPAD_NEUTRAL, CONTROLLER_DPAD_NEUTRAL); };
+    // Ordinary game input remains intact. Adding mute to held Up does not adjust.
+    input(false, CONTROLLER_DPAD_UP, CONTROLLER_DPAD_UP);
+    assert(input(true, CONTROLLER_DPAD_UP, CONTROLLER_DPAD_NEUTRAL) == 0);
+    assert(gain == 10);
+    release();
+    assert(input(true, CONTROLLER_DPAD_UP, CONTROLLER_DPAD_NEUTRAL) == 1);
+    assert(gain == 11);
+    for (int i = 0; i < 100; ++i) input(true, CONTROLLER_DPAD_UP, CONTROLLER_DPAD_NEUTRAL);
+    assert(gain == 11); // no repeat
+    input(false, CONTROLLER_DPAD_UP, CONTROLLER_DPAD_NEUTRAL); // no release leak
+    release();
+    input(false, CONTROLLER_DPAD_UP, CONTROLLER_DPAD_UP);
+    release();
+    input(true, CONTROLLER_DPAD_UP_RIGHT, CONTROLLER_DPAD_NEUTRAL);
+    input(true, CONTROLLER_DPAD_UP, CONTROLLER_DPAD_NEUTRAL);
+    assert(gain == 11); // diagonal-to-up needs neutral first
+    release();
+    for (int i = 0; i < 20; ++i) {
+        input(true, CONTROLLER_DPAD_UP, CONTROLLER_DPAD_NEUTRAL);
+        release();
+    }
+    assert(gain == 20);
+    assert(input(true, CONTROLLER_DPAD_UP, CONTROLLER_DPAD_NEUTRAL) == 2);
+    release();
+    input(true, CONTROLLER_DPAD_DOWN, CONTROLLER_DPAD_NEUTRAL);
+    assert(gain == 19);
+    release();
+    assert(input(true, CONTROLLER_DPAD_LEFT, CONTROLLER_DPAD_NEUTRAL) == 2);
+    assert(gain == 10);
+    release();
+    assert(input(true, CONTROLLER_DPAD_DOWN, CONTROLLER_DPAD_NEUTRAL) == 2);
+    assert(gain == 10);
+    controls.reset();
+    assert(!controls.modifier_down);
+    input(false, CONTROLLER_DPAD_DOWN, CONTROLLER_DPAD_DOWN);
+}
+
 int main() {
+    test_haptics_controls();
     test_dualsense_parser();
     test_switch_input_mapping();
     test_subcommands_and_spi();

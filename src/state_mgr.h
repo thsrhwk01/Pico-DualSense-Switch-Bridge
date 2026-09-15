@@ -12,5 +12,7 @@ void state_update(const uint8_t *data, uint8_t size);
 void set_volume(uint8_t value);
 void set_volume(uint8_t speaker, uint8_t headset);
 void set_trigger_reduce(uint8_t value);
+uint8_t state_mute_light();
+void state_send_mute_light(uint8_t mode);
 
 #endif //DS5_BRIDGE_STATE_MGR_H

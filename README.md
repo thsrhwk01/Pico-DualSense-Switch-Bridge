@@ -134,6 +134,21 @@ still being evaluated; it should not be treated as a completed or faithful HD Ru
 implementation. A 500 ms watchdog ramps the actuators to silence if the USB host
 disappears while rumble is active.
 
+### Switch vibration strength (development branch)
+
+In Switch Pro mode, hold the DualSense microphone/mute button and press D-pad
+Up or Down to adjust vibration from **1.0× to 2.0× in 0.1× steps**. Hold mute
+and press Left to reset to 1.0×. Release the D-pad between steps; holding it
+does not repeat. Diagonals do not adjust the gain. These D-pad inputs are
+consumed locally until the D-pad is released, including if mute is released first.
+
+The microphone LED flashes once for a change, twice at either limit or on reset.
+The setting is separate from PC haptics gain and is saved after mute is released
+and at least two seconds have passed since the last change. Wait before unplugging.
+Existing settings and pairing data are preserved; the initial Switch gain is 1.0×.
+Higher gains can clip strong effects and change their texture. Hardware verification
+of these shortcuts and LED feedback is pending.
+
 ### BOOTSEL button: pair, change USB mode, or clear controllers
 
 While the firmware is running, the Pico's **BOOTSEL button** doubles as a

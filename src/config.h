@@ -39,6 +39,8 @@ bool config_save();
 Config_body& get_config();
 uint8_t config_get_usb_output_mode();
 void config_set_usb_output_mode(uint8_t mode);
+uint8_t config_get_switch_haptics_tenths();
+void config_set_switch_haptics_tenths(uint8_t tenths);
 void set_config(const uint8_t *new_config, const uint16_t len);
 void config_valid();
 void set_config(const Config_body &new_config);

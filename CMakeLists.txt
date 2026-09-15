@@ -110,6 +110,7 @@ add_executable(pico-dualsense-switch-bridge
         src/switch_pro_protocol.cpp
         src/switch_rumble.cpp
         src/switch_haptics_synth.cpp
+        src/switch_haptics_controls.cpp
         src/switch_rumble_adapter.cpp
         src/switch_pro_usb.cpp
         src/usb_mode.cpp

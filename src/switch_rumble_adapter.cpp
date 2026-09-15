@@ -29,8 +29,7 @@ bool transport_active = false;
 bool controller_was_connected = false;
 
 uint16_t haptics_gain_q8() {
-    const float gain = std::clamp(get_config().haptics_gain, 1.0f, 2.0f);
-    return static_cast<uint16_t>(gain * 256.0f + 0.5f);
+    return (config_get_switch_haptics_tenths() * 256u + 5u) / 10u;
 }
 
 } // namespace

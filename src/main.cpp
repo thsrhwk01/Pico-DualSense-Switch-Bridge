@@ -25,6 +25,7 @@
 #include "cmd.h"
 #include "dse.h"
 #include "dualsense_parser.h"
+#include "switch_haptics_controls.h"
 #include "switch_pro_usb.h"
 #include "usb_mode.h"
 #if ENABLE_BATT_LED
@@ -102,6 +103,7 @@ void __not_in_flash_func(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16
             ControllerState state{};
             if (dualsense_parse_input(data + 3, len - 3, state)) {
                 memcpy(interrupt_in_data, data + 3, sizeof(interrupt_in_data));
+                switch_haptics_input(state);
                 switch_pro_usb_update(state);
 #if ENABLE_BATT_LED
                 battery_led_note_report();
@@ -359,6 +361,7 @@ int main() {
 #endif
         button_check();
         usb_mode_task();
+        switch_haptics_controls_task();
         bt_inquiring_led();
         dse_task();
     }

@@ -16,4 +16,11 @@ g++ -std=c++20 -Wall -Wextra -Werror -pedantic \
 
 "$out_dir/test_switch_pro"
 
+g++ -std=c++20 -Wall -Wextra -Werror -pedantic \
+    -I"$repo_dir/tests/stubs" -I"$repo_dir/src" \
+    "$repo_dir/src/switch_haptics_controls.cpp" \
+    "$repo_dir/tests/test_switch_haptics_controls.cpp" \
+    -o "$out_dir/test_switch_haptics_controls"
+"$out_dir/test_switch_haptics_controls"
+
 python3 -B "$repo_dir/tests/test_memory_budget.py"

@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "config.h"
+#include "bt.h"
 #include "utils.h"
 
 static constexpr SetStateData state_init_data = {
@@ -62,6 +63,20 @@ static constexpr SetStateData state_init_data = {
 };
 
 SetStateData state{};
+
+uint8_t state_mute_light() { return static_cast<uint8_t>(state.MuteLightMode); }
+
+void state_send_mute_light(uint8_t mode) {
+    // Change only the indicator, preserving rumble and audio state.
+    state.MuteLightMode = static_cast<MuteLight::MuteLight>(mode);
+    uint8_t packet[142]{};
+    packet[0] = 0x32;
+    packet[1] = 0x10;
+    packet[2] = 0x90;
+    packet[3] = 63;
+    state_set(packet + 4, sizeof(SetStateData));
+    bt_write(packet, sizeof(packet));
+}
 
 void state_init() {
     state = state_init_data;

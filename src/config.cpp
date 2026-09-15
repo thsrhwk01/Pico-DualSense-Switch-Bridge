@@ -27,6 +27,21 @@ struct __attribute__((packed)) UsbModeRecord {
 
 static Config config{};
 static uint8_t usb_output_mode = 0;
+static uint8_t switch_haptics_tenths = 10;
+// Append after the existing records: preserve schema v5 and web-tool layout.
+struct __attribute__((packed)) SwitchHapticsRecord {
+    uint32_t magic;
+    uint8_t tenths;
+    uint8_t inverse;
+};
+constexpr uint32_t SWITCH_HAPTICS_MAGIC = 0x31474853; // SHG1
+constexpr size_t SWITCH_HAPTICS_OFFSET = sizeof(Config) + sizeof(UsbModeRecord);
+static_assert(SWITCH_HAPTICS_OFFSET + sizeof(SwitchHapticsRecord) <= FLASH_PAGE_SIZE);
+
+static bool switch_haptics_valid(const SwitchHapticsRecord &record) {
+    return record.magic == SWITCH_HAPTICS_MAGIC && record.tenths >= 10 &&
+           record.tenths <= 20 && record.inverse == static_cast<uint8_t>(record.tenths ^ 0xffu);
+}
 bool is_dse = false;
 
 // 编译期保护
@@ -136,6 +151,10 @@ void config_load() {
     memcpy(&config, flash_config(), sizeof(Config));
 
     config_valid();
+    SwitchHapticsRecord haptics{};
+    memcpy(&haptics, reinterpret_cast<const uint8_t *>(flash_config()) + SWITCH_HAPTICS_OFFSET,
+           sizeof(haptics));
+    switch_haptics_tenths = switch_haptics_valid(haptics) ? haptics.tenths : 10;
 
     UsbModeRecord record{};
     memcpy(&record, flash_usb_mode_record(), sizeof(record));
@@ -168,6 +187,9 @@ bool config_save() {
         .mode_inverse = static_cast<uint8_t>(usb_output_mode ^ 0xffu),
     };
     memcpy(page + sizeof(Config), &mode_record, sizeof(mode_record));
+    const SwitchHapticsRecord haptics_record{SWITCH_HAPTICS_MAGIC, switch_haptics_tenths,
+        static_cast<uint8_t>(switch_haptics_tenths ^ 0xffu)};
+    memcpy(page + SWITCH_HAPTICS_OFFSET, &haptics_record, sizeof(haptics_record));
 
     const int rc = flash_safe_execute(config_save_flash_op, page, 1000);
     if (rc != PICO_OK) {
@@ -180,8 +202,12 @@ bool config_save() {
     UsbModeRecord verify_mode{};
     memcpy(&verify_mode, flash_usb_mode_record(), sizeof(verify_mode));
     const auto verify_crc32 = calc_config_crc(verify);
+    SwitchHapticsRecord verify_haptics{};
+    memcpy(&verify_haptics, reinterpret_cast<const uint8_t *>(flash_config()) + SWITCH_HAPTICS_OFFSET,
+           sizeof(verify_haptics));
     if (verify_crc32 == config.crc32 && usb_mode_record_valid(verify_mode) &&
-        verify_mode.mode == usb_output_mode) {
+        verify_mode.mode == usb_output_mode && switch_haptics_valid(verify_haptics) &&
+        verify_haptics.tenths == switch_haptics_tenths) {
         printf("[Config] Config write flash verify success\n");
         return true;
     }
@@ -191,6 +217,12 @@ bool config_save() {
 
 Config_body& get_config() {
     return config.body;
+}
+
+uint8_t config_get_switch_haptics_tenths() { return switch_haptics_tenths; }
+
+void config_set_switch_haptics_tenths(uint8_t tenths) {
+    switch_haptics_tenths = tenths >= 10 && tenths <= 20 ? tenths : 10;
 }
 
 uint8_t config_get_usb_output_mode() {
